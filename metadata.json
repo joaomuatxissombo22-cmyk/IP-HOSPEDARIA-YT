@@ -1,0 +1,6 @@
+{
+  "name": "ZEMAN Trading & Services — Hospedagem & Resorts",
+  "description": "Website corporativo e sistema de reservas de luxo para ZEMAN Trading & Services, com catálogo de alojamentos, portal de hóspedes e painel administrativo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
