@@ -18,7 +18,12 @@ import {
   Printer,
   ChevronRight,
   ShieldCheck,
-  Building
+  Building,
+  CheckCheck,
+  Trash2,
+  MessageSquare,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { Booking } from '../types';
 
@@ -33,12 +38,21 @@ export const ClientDashboard: React.FC = () => {
     logout, 
     setCurrentView, 
     setActiveModal,
-    formatKz 
+    formatKz,
+    notifications,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    deleteNotification,
+    clearAllNotifications
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
     'reservas' | 'perfil' | 'avaliar' | 'notificacoes' | 'seguranca'
   >('reservas');
+
+  const [notificationCategory, setNotificationCategory] = useState<
+    'todas' | 'unread' | 'booking' | 'review' | 'support'
+  >('todas');
 
   // Cancel modal state
   const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
@@ -94,6 +108,24 @@ export const ClientDashboard: React.FC = () => {
   );
 
   const completedBookings = myBookings.filter((b) => b.status === 'Concluída');
+
+  // Filter notifications strictly for this client
+  const clientNotifications = notifications.filter((n) => {
+    if (n.recipientRole && n.recipientRole !== 'client') return false;
+    if (n.recipientUserId && n.recipientUserId !== currentUser.id) return false;
+    if (n.recipientEmail && n.recipientEmail.toLowerCase() !== currentUser.email.toLowerCase()) return false;
+    return true;
+  });
+
+  const unreadClientNotificationsCount = clientNotifications.filter((n) => !n.read).length;
+
+  const filteredClientNotifications = clientNotifications.filter((n) => {
+    if (notificationCategory === 'unread') return !n.read;
+    if (notificationCategory === 'booking') return n.type === 'booking_status';
+    if (notificationCategory === 'review') return n.type === 'review_request' || n.type === 'review_submitted';
+    if (notificationCategory === 'support') return n.type === 'support_message' || n.type === 'system';
+    return true;
+  });
 
   const handleCancelSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,12 +272,19 @@ export const ClientDashboard: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('notificacoes')}
-              className={`w-full p-3 rounded-xl text-left text-xs font-bold flex items-center gap-2.5 transition-all ${
+              className={`w-full p-3 rounded-xl text-left text-xs font-bold flex items-center justify-between transition-all ${
                 activeTab === 'notificacoes' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
-              <Bell className="w-4 h-4 text-amber-500" />
-              <span>Notificações</span>
+              <span className="flex items-center gap-2.5">
+                <Bell className={`w-4 h-4 ${unreadClientNotificationsCount > 0 ? 'text-emerald-500 animate-bounce' : 'text-amber-500'}`} />
+                <span>Notificações</span>
+              </span>
+              {unreadClientNotificationsCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500 text-white font-bold animate-pulse">
+                  {unreadClientNotificationsCount}
+                </span>
+              )}
             </button>
 
             <button
@@ -585,35 +624,241 @@ export const ClientDashboard: React.FC = () => {
 
             {/* TAB: NOTIFICAÇÕES */}
             {activeTab === 'notificacoes' && (
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-                <h3 className="font-serif-luxury text-2xl font-bold text-slate-900 mb-2">
-                  Notificações & Alertas
-                </h3>
-
-                <div className="space-y-3">
-                  <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-3">
-                    <Bell className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="text-xs">
-                      <strong className="block text-slate-900 font-bold">Bem-vindo à ZEMAN Trading & Services</strong>
-                      <p className="text-slate-600 mt-0.5">
-                        A sua conta de hóspede encontra-se ativa. Pode acompanhar reservas, emitir vouchers e desfrutar das nossas tarifas exclusivas.
-                      </p>
-                    </div>
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-serif-luxury text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+                      <span>Notificações & Alertas em Tempo Real</span>
+                      {unreadClientNotificationsCount > 0 && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                          {unreadClientNotificationsCount} nova{unreadClientNotificationsCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Acompanhe alterações no estado das suas reservas, pedidos de avaliação pós-estadia e respostas de suporte da ZEMAN.
+                    </p>
                   </div>
 
-                  {activeOrUpcomingBookings.map((b) => (
-                    <div key={b.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                      <div className="text-xs">
-                        <strong className="block text-slate-900 font-bold">
-                          Reserva {b.id} ({b.status})
-                        </strong>
-                        <p className="text-slate-600 mt-0.5">
-                          Alojamento: {b.accommodationName}. Check-in programado para <strong>{b.checkIn}</strong> a partir das 14:00.
-                        </p>
+                  <div className="flex items-center gap-2">
+                    {unreadClientNotificationsCount > 0 && (
+                      <button
+                        onClick={() => markAllNotificationsAsRead('client', currentUser.id)}
+                        className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Marcar todas as notificações como lidas"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Marcar como Lidas</span>
+                      </button>
+                    )}
+                    {clientNotifications.length > 0 && (
+                      <button
+                        onClick={() => clearAllNotifications('client', currentUser.id)}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors cursor-pointer"
+                        title="Limpar todas as notificações"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Category Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  <button
+                    onClick={() => setNotificationCategory('todas')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      notificationCategory === 'todas'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Todas ({clientNotifications.length})
+                  </button>
+                  <button
+                    onClick={() => setNotificationCategory('unread')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      notificationCategory === 'unread'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Não Lidas ({unreadClientNotificationsCount})
+                  </button>
+                  <button
+                    onClick={() => setNotificationCategory('booking')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      notificationCategory === 'booking'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Reservas ({clientNotifications.filter((n) => n.type === 'booking_status').length})
+                  </button>
+                  <button
+                    onClick={() => setNotificationCategory('review')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      notificationCategory === 'review'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Avaliações ({clientNotifications.filter((n) => n.type === 'review_request' || n.type === 'review_submitted').length})
+                  </button>
+                  <button
+                    onClick={() => setNotificationCategory('support')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      notificationCategory === 'support'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Suporte & Mensagens ({clientNotifications.filter((n) => n.type === 'support_message' || n.type === 'system').length})
+                  </button>
+                </div>
+
+                {/* Notifications List */}
+                <div className="space-y-3">
+                  {filteredClientNotifications.length === 0 ? (
+                    <div className="text-center py-12 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                        <Bell className="w-6 h-6" />
                       </div>
+                      <h4 className="font-bold text-slate-800 text-sm">Sem Notificações nesta categoria</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        Qualquer alteração de reservas, confirmações de pagamento ou respostas a pedidos de apoio serão alertadas aqui instantaneamente.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    filteredClientNotifications.map((notif) => {
+                      const isUnread = !notif.read;
+                      const dateObj = new Date(notif.createdAt);
+                      const timeStr = !isNaN(dateObj.getTime())
+                        ? dateObj.toLocaleDateString('pt-AO', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : notif.createdAt;
+
+                      return (
+                        <div
+                          key={notif.id}
+                          className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                            isUnread
+                              ? 'bg-emerald-50/40 border-emerald-300 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3.5">
+                            {/* Type Icon Badge */}
+                            <div className="shrink-0 mt-0.5">
+                              {notif.type === 'booking_status' && (
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                  isUnread ? 'bg-emerald-600 text-white shadow' : 'bg-emerald-100 text-emerald-800'
+                                }`}>
+                                  <Calendar className="w-4 h-4" />
+                                </div>
+                              )}
+                              {(notif.type === 'review_request' || notif.type === 'review_submitted') && (
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                  isUnread ? 'bg-amber-500 text-white shadow' : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  <Star className="w-4 h-4" />
+                                </div>
+                              )}
+                              {notif.type === 'support_message' && (
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                  isUnread ? 'bg-sky-600 text-white shadow' : 'bg-sky-100 text-sky-800'
+                                }`}>
+                                  <MessageSquare className="w-4 h-4" />
+                                </div>
+                              )}
+                              {notif.type === 'system' && (
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                  isUnread ? 'bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-700'
+                                }`}>
+                                  <Bell className="w-4 h-4" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Content & Metadata */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                                    {notif.title}
+                                  </h4>
+                                  {isUnread && (
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-100 shrink-0"></span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                                  {timeStr}
+                                </span>
+                              </div>
+
+                              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                                {notif.message}
+                              </p>
+
+                              {/* Action Footer */}
+                              <div className="flex flex-wrap items-center gap-2 mt-3 pt-2.5 border-t border-slate-100/80">
+                                {notif.type === 'review_request' && (
+                                  <button
+                                    onClick={() => {
+                                      if (notif.relatedBookingId) {
+                                        setReviewBookingId(notif.relatedBookingId);
+                                      }
+                                      setActiveTab('avaliar');
+                                      markNotificationAsRead(notif.id);
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px] flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                                  >
+                                    <Star className="w-3.5 h-3.5" />
+                                    <span>Avaliar Estadia Agora</span>
+                                  </button>
+                                )}
+
+                                {notif.relatedBookingId && notif.type !== 'review_request' && (
+                                  <button
+                                    onClick={() => {
+                                      setActiveTab('reservas');
+                                      markNotificationAsRead(notif.id);
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  >
+                                    <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Ver Reserva #{notif.relatedBookingId}</span>
+                                  </button>
+                                )}
+
+                                {isUnread && (
+                                  <button
+                                    onClick={() => markNotificationAsRead(notif.id)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                                  >
+                                    Marcar como lida
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => deleteNotification(notif.id)}
+                                  className="ml-auto p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                  title="Remover notificação"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}

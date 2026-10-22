@@ -1,0 +1,46 @@
+name: Deploy para Hostinger (Automático)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Compilar e Publicar na Hostinger
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Baixar código do repositório (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar ambiente Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 3. Instalar Dependências do Projecto
+        run: npm ci || npm install
+
+      - name: 4. Compilar Website para Produção (Vite Build)
+        run: npm run build
+
+      - name: 5. Garantir presença do ficheiro .htaccess na pasta dist
+        run: |
+          if [ -f public/.htaccess ]; then
+            cp public/.htaccess dist/.htaccess
+          fi
+
+      - name: 6. Enviar ficheiros compilados para a Hostinger via FTP/FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./public_html/
+          dangerous-clean-slate: false

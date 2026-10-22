@@ -13,6 +13,8 @@ import {
   BookingStatus,
   PaymentStatus,
   UserRole,
+  AppNotification,
+  SupportMessage,
 } from '../types';
 import {
   INITIAL_ACCOMMODATIONS,
@@ -23,6 +25,8 @@ import {
   INITIAL_OFFERS,
   INITIAL_USERS,
   INITIAL_SITE_SETTINGS,
+  INITIAL_NOTIFICATIONS,
+  INITIAL_SUPPORT_MESSAGES,
 } from '../data/mockData';
 
 export type AppView = 
@@ -60,6 +64,8 @@ interface AppContextType {
   searchCriteria: SearchCriteria;
   bookingDraft: Partial<Booking> | null;
   activeLanguage: 'PT' | 'EN';
+  notifications: AppNotification[];
+  supportMessages: SupportMessage[];
   formatKz: (val: number) => string;
   setCurrentView: (view: AppView) => void;
   setSelectedAccommodation: (acc: Accommodation | null) => void;
@@ -85,25 +91,33 @@ interface AppContextType {
   saveOffer: (offer: Offer) => void;
   updateSiteSettings: (settings: SiteSettings) => void;
   updateUserProfile: (data: Partial<User>) => void;
+  addNotification: (notif: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => AppNotification;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: (recipientRole?: 'admin' | 'client', userId?: string) => void;
+  deleteNotification: (id: string) => void;
+  clearAllNotifications: (recipientRole?: 'admin' | 'client', userId?: string) => void;
+  sendSupportMessage: (data: Omit<SupportMessage, 'id' | 'createdAt' | 'status'>) => SupportMessage;
+  replySupportMessage: (messageId: string, replyText: string) => void;
   resetAllData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  ACCOMMODATIONS: 'zeman_accommodations_v2',
-  ROOM_UNITS: 'zeman_rooms_v2',
-  BOOKINGS: 'zeman_bookings_v2',
-  REVIEWS: 'zeman_reviews_v2',
-  EXPERIENCES: 'zeman_experiences_v2',
-  OFFERS: 'zeman_offers_v2',
-  USERS: 'zeman_users_v2',
-  SETTINGS: 'zeman_settings_v2',
-  CURRENT_USER: 'zeman_current_user_v2',
+  ACCOMMODATIONS: 'zeman_accommodations_v3',
+  ROOM_UNITS: 'zeman_rooms_v3',
+  BOOKINGS: 'zeman_bookings_v3',
+  REVIEWS: 'zeman_reviews_v3',
+  EXPERIENCES: 'zeman_experiences_v3',
+  OFFERS: 'zeman_offers_v3',
+  USERS: 'zeman_users_v3',
+  SETTINGS: 'zeman_settings_v3',
+  CURRENT_USER: 'zeman_current_user_v3',
+  NOTIFICATIONS: 'zeman_notifications_v3',
+  SUPPORT_MESSAGES: 'zeman_support_messages_v3',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load from local storage or fallback to initial
   const [accommodations, setAccommodations] = useState<Accommodation[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACCOMMODATIONS);
     return saved ? JSON.parse(saved) : INITIAL_ACCOMMODATIONS;
@@ -149,6 +163,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+  });
+
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SUPPORT_MESSAGES);
+    return saved ? JSON.parse(saved) : INITIAL_SUPPORT_MESSAGES;
+  });
+
   const [currentView, setCurrentView] = useState<AppView>('home');
   const [selectedAccommodation, setSelectedAccommodation] = useState<Accommodation | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal>('none');
@@ -163,7 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   defaultCheckOut.setDate(today.getDate() + 4);
 
   const [searchCriteria, setSearchCriteria] = useState<SearchCriteria>({
-    destination: 'Todas as Localizações',
+    destination: 'Hospedaria ZEMAN (Rotunda do Fubu / Talatona)',
     checkIn: defaultCheckIn.toISOString().split('T')[0],
     checkOut: defaultCheckOut.toISOString().split('T')[0],
     guests: 2,
@@ -205,6 +229,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [siteSettings]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
+  }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SUPPORT_MESSAGES, JSON.stringify(supportMessages));
+  }, [supportMessages]);
+
+  useEffect(() => {
     if (currentUser) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
     } else {
@@ -217,6 +249,128 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return `${new Intl.NumberFormat('pt-AO', { maximumFractionDigits: 0 }).format(val)} Kz`;
   };
 
+  // --- Notification Actions ---
+  const addNotification = (notif: Omit<AppNotification, 'id' | 'createdAt' | 'read'>): AppNotification => {
+    const newNotif: AppNotification = {
+      ...notif,
+      id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+    return newNotif;
+  };
+
+  const markNotificationAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllNotificationsAsRead = (recipientRole?: 'admin' | 'client', userId?: string) => {
+    setNotifications(prev =>
+      prev.map(n => {
+        if (recipientRole === 'admin' && (n.recipientRole === 'admin' || n.recipientRole === 'all_staff')) {
+          return { ...n, read: true };
+        }
+        if (recipientRole === 'client' && (n.recipientRole === 'client' || (userId && n.recipientUserId === userId))) {
+          return { ...n, read: true };
+        }
+        if (!recipientRole) {
+          return { ...n, read: true };
+        }
+        return n;
+      })
+    );
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const clearAllNotifications = (recipientRole?: 'admin' | 'client', userId?: string) => {
+    setNotifications(prev =>
+      prev.filter(n => {
+        if (recipientRole === 'admin' && (n.recipientRole === 'admin' || n.recipientRole === 'all_staff')) {
+          return false;
+        }
+        if (recipientRole === 'client' && (n.recipientRole === 'client' || (userId && n.recipientUserId === userId))) {
+          return false;
+        }
+        return true;
+      })
+    );
+  };
+
+  // --- Support Messages Actions ---
+  const sendSupportMessage = (data: Omit<SupportMessage, 'id' | 'createdAt' | 'status'>): SupportMessage => {
+    const newMsg: SupportMessage = {
+      ...data,
+      id: `msg-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      status: 'unread',
+    };
+    setSupportMessages(prev => [newMsg, ...prev]);
+
+    // Alert Admin about new incoming support message
+    addNotification({
+      recipientRole: 'admin',
+      type: 'support_message',
+      title: `Nova Mensagem de Contacto / Apoio`,
+      message: `${data.name} (${data.email}) enviou mensagem sobre "${data.subject}": "${data.message.substring(0, 80)}..."`,
+      linkAction: {
+        view: 'admin',
+        tab: 'mensagens',
+        targetId: newMsg.id,
+      },
+    });
+
+    // Alert Client confirmation
+    addNotification({
+      recipientRole: 'client',
+      recipientUserId: currentUser?.id,
+      recipientEmail: data.email,
+      type: 'support_message',
+      title: `Mensagem Recebida pela Hospedaria ZEMAN`,
+      message: `Recebemos o seu contacto sobre "${data.subject}". A nossa equipa de apoio responderá o mais breve possível.`,
+      linkAction: {
+        view: 'client_dashboard',
+        tab: 'notificacoes',
+      },
+    });
+
+    return newMsg;
+  };
+
+  const replySupportMessage = (messageId: string, replyText: string) => {
+    const nowStr = new Date().toISOString();
+    let repliedMsg: SupportMessage | null = null;
+
+    setSupportMessages(prev =>
+      prev.map(m => {
+        if (m.id === messageId) {
+          repliedMsg = { ...m, status: 'replied', replyText, repliedAt: nowStr };
+          return repliedMsg;
+        }
+        return m;
+      })
+    );
+
+    // Notify client about the support reply
+    if (repliedMsg) {
+      addNotification({
+        recipientRole: 'client',
+        recipientEmail: (repliedMsg as SupportMessage).email,
+        type: 'support_message',
+        title: `Resposta do Apoio ZEMAN — ${(repliedMsg as SupportMessage).subject}`,
+        message: `A gerência da hospedaria respondeu à sua mensagem: "${replyText}"`,
+        linkAction: {
+          view: 'client_dashboard',
+          tab: 'notificacoes',
+          targetId: messageId,
+        },
+      });
+    }
+  };
+
   // Auth Functions
   const login = (email: string, pass: string) => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -227,7 +381,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (found.status === 'suspended') {
       return { success: false, message: 'Esta conta encontra-se temporariamente suspensa pela administração.' };
     }
-    // In our client-side system, simple check
     if (found.password && found.password !== pass) {
       return { success: false, message: 'Palavra-passe incorreta.' };
     }
@@ -249,6 +402,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setUsers(prev => [newUser, ...prev]);
     setCurrentUser(newUser);
+
+    // Welcome notification
+    addNotification({
+      recipientRole: 'client',
+      recipientUserId: newUser.id,
+      recipientEmail: newUser.email,
+      type: 'system',
+      title: 'Bem-vindo à ZEMAN Trading & Services!',
+      message: 'A sua conta de cliente foi criada com sucesso. Pode agora consultar quartos, gerir reservas e acumular vantagens.',
+      linkAction: { view: 'client_dashboard', tab: 'reservas' },
+    });
+
     return { success: true, message: 'Conta registada com sucesso! Bem-vindo à ZEMAN.', user: newUser };
   };
 
@@ -267,8 +432,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const adminUser = users.find(u => u.role === role) || {
         id: `user-${role}-test`,
         fullName: `Operador ZEMAN (${role})`,
-        email: `${role}@zemantrading.ao`,
-        phone: '+244 923 000 000',
+        email: `${role}@zeman.com`,
+        phone: '+244 912 345 678',
         country: 'Angola',
         role: role,
         createdAt: new Date().toISOString().split('T')[0],
@@ -278,7 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Booking functions
+  // Booking functions with integrated notifications
   const createBooking = (bookingData: Omit<Booking, 'id' | 'createdAt' | 'timeline'>): Booking => {
     const randomCode = Math.floor(1000 + Math.random() * 9000);
     const newId = `ZTS-${new Date().getFullYear()}-${randomCode}`;
@@ -298,11 +463,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setBookings(prev => [newBooking, ...prev]);
+
+    // 1. Alert Admin about new booking
+    addNotification({
+      recipientRole: 'admin',
+      type: 'booking_status',
+      title: `Nova Reserva Registada — ${newId}`,
+      message: `O hóspede ${bookingData.guestName} registou reserva para ${bookingData.accommodationName} (${bookingData.checkIn} a ${bookingData.checkOut}) no valor de ${formatKz(bookingData.totalAmount)}.`,
+      linkAction: {
+        view: 'admin',
+        tab: 'reservas',
+        targetId: newId,
+      },
+      relatedBookingId: newId,
+    });
+
+    // 2. Alert Client about reservation pending confirmation
+    addNotification({
+      recipientRole: 'client',
+      recipientUserId: bookingData.userId || currentUser?.id,
+      recipientEmail: bookingData.guestEmail,
+      type: 'booking_status',
+      title: `Reserva ${newId} Registada com Sucesso`,
+      message: `A sua solicitação para ${bookingData.accommodationName} foi enviada. Estamos a aguardar validação do método de pagamento (${bookingData.paymentMethod}).`,
+      linkAction: {
+        view: 'client_dashboard',
+        tab: 'reservas',
+        targetId: newId,
+      },
+      relatedBookingId: newId,
+    });
+
     return newBooking;
   };
 
   const updateBookingStatus = (id: string, status: BookingStatus, paymentStatus?: PaymentStatus, note?: string) => {
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    let updatedBooking: Booking | null = null;
+
     setBookings(prev =>
       prev.map(b => {
         if (b.id !== id) return b;
@@ -313,22 +511,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           actor: currentUser ? currentUser.fullName : 'Administrador',
           note: note,
         });
-        return {
+        updatedBooking = {
           ...b,
           status,
           paymentStatus: paymentStatus || b.paymentStatus,
           internalNotes: note !== undefined ? note : b.internalNotes,
           timeline: newTimeline,
         };
+        return updatedBooking;
       })
     );
+
+    if (updatedBooking) {
+      const b = updatedBooking as Booking;
+
+      // 1. Alert Client about status change
+      addNotification({
+        recipientRole: 'client',
+        recipientUserId: b.userId,
+        recipientEmail: b.guestEmail,
+        type: 'booking_status',
+        title: `Atualização da Reserva ${b.id}: ${status}`,
+        message: `O estado da sua reserva em ${b.accommodationName} foi atualizado para "${status}" com pagamento "${b.paymentStatus}". ${note ? `Nota: ${note}` : ''}`,
+        linkAction: {
+          view: 'client_dashboard',
+          tab: 'reservas',
+          targetId: b.id,
+        },
+        relatedBookingId: b.id,
+      });
+
+      // 2. If status was changed to Concluída -> send REVIEW REQUEST!
+      if (status === 'Concluída') {
+        addNotification({
+          recipientRole: 'client',
+          recipientUserId: b.userId,
+          recipientEmail: b.guestEmail,
+          type: 'review_request',
+          title: `Como foi a sua estadia na Hospedaria ZEMAN?`,
+          message: `A sua estadia na reserva ${b.id} foi concluída. Partilhe a sua avaliação sobre o conforto do quarto, gerador 24h e atendimento!`,
+          linkAction: {
+            view: 'client_dashboard',
+            tab: 'avaliar',
+            targetId: b.id,
+          },
+          relatedBookingId: b.id,
+        });
+      }
+    }
   };
 
   const cancelBooking = (id: string, reason: string) => {
     const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    let targetBooking: Booking | null = null;
+
     setBookings(prev =>
       prev.map(b => {
         if (b.id !== id) return b;
+        targetBooking = b;
         return {
           ...b,
           status: 'Cancelada',
@@ -344,21 +584,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       })
     );
+
+    if (targetBooking) {
+      const b = targetBooking as Booking;
+
+      // Alert Admin
+      addNotification({
+        recipientRole: 'admin',
+        type: 'booking_status',
+        title: `Cancelamento de Reserva — ${b.id}`,
+        message: `O hóspede ${b.guestName} cancelou a reserva em ${b.accommodationName}. Motivo: ${reason}`,
+        linkAction: {
+          view: 'admin',
+          tab: 'reservas',
+          targetId: b.id,
+        },
+        relatedBookingId: b.id,
+      });
+
+      // Alert Client
+      addNotification({
+        recipientRole: 'client',
+        recipientUserId: b.userId,
+        recipientEmail: b.guestEmail,
+        type: 'booking_status',
+        title: `Reserva ${b.id} Cancelada`,
+        message: `O cancelamento da sua reserva em ${b.accommodationName} foi processado conforme a política aplicável.`,
+        linkAction: {
+          view: 'client_dashboard',
+          tab: 'reservas',
+          targetId: b.id,
+        },
+        relatedBookingId: b.id,
+      });
+    }
   };
 
-  // Reviews
+  // Reviews with integrated notifications
   const submitReview = (data: Omit<Review, 'id' | 'date' | 'status'>) => {
+    const newRevId = `rev-${Date.now()}`;
     const newRev: Review = {
       ...data,
-      id: `rev-${Date.now()}`,
+      id: newRevId,
       date: new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' }),
-      status: 'pending', // Requires admin approval per prompt!
+      status: 'pending',
     };
     setReviews(prev => [newRev, ...prev]);
+
+    // Alert Admin about new review submitted for moderation
+    addNotification({
+      recipientRole: 'admin',
+      type: 'review_submitted',
+      title: `Nova Avaliação Aguarda Moderação`,
+      message: `${data.guestName} atribuiu ${data.rating} estrelas a "${data.accommodationName}": "${data.comment.substring(0, 80)}..."`,
+      linkAction: {
+        view: 'admin',
+        tab: 'conteudos',
+        targetId: newRevId,
+      },
+      relatedReviewId: newRevId,
+    });
   };
 
   const approveReview = (id: string) => {
+    const rev = reviews.find(r => r.id === id);
     setReviews(prev => prev.map(r => (r.id === id ? { ...r, status: 'approved' } : r)));
+
+    // Alert Client that review was approved
+    if (rev) {
+      addNotification({
+        recipientRole: 'client',
+        recipientEmail: rev.guestEmail,
+        type: 'system',
+        title: `A sua avaliação foi Aprovada e Publicada!`,
+        message: `A sua avaliação sobre "${rev.accommodationName}" foi aprovada pela gerência e está visível no site. Agradecemos a sua preferência!`,
+        linkAction: {
+          view: 'client_dashboard',
+          tab: 'avaliar',
+        },
+        relatedReviewId: id,
+      });
+    }
   };
 
   const rejectReview = (id: string) => {
@@ -440,6 +746,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOffers(INITIAL_OFFERS);
     setUsers(INITIAL_USERS);
     setSiteSettings(INITIAL_SITE_SETTINGS);
+    setNotifications(INITIAL_NOTIFICATIONS);
+    setSupportMessages(INITIAL_SUPPORT_MESSAGES);
     setCurrentUser(null);
   };
 
@@ -461,6 +769,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         searchCriteria,
         bookingDraft,
         activeLanguage,
+        notifications,
+        supportMessages,
         formatKz,
         setCurrentView,
         setSelectedAccommodation,
@@ -486,6 +796,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         saveOffer,
         updateSiteSettings,
         updateUserProfile,
+        addNotification,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        deleteNotification,
+        clearAllNotifications,
+        sendSupportMessage,
+        replySupportMessage,
         resetAllData,
       }}
     >

@@ -183,3 +183,42 @@ export interface SearchCriteria {
   rooms: number;
   category?: AccommodationCategory;
 }
+
+export type NotificationType = 
+  | 'booking_status'
+  | 'review_request'
+  | 'review_submitted'
+  | 'support_message'
+  | 'system';
+
+export interface AppNotification {
+  id: string;
+  recipientRole?: 'admin' | 'all_staff' | 'client';
+  recipientUserId?: string;
+  recipientEmail?: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  linkAction?: {
+    view?: 'client_dashboard' | 'admin';
+    tab?: string;
+    targetId?: string;
+  };
+  relatedBookingId?: string;
+  relatedReviewId?: string;
+  read: boolean;
+  createdAt: string; // ISO String
+}
+
+export interface SupportMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  status: 'unread' | 'read' | 'replied';
+  replyText?: string;
+  repliedAt?: string;
+}

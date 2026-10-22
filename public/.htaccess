@@ -1,0 +1,101 @@
+# ==============================================================================
+# ZEMAN Trading & Services — Hostinger Web Server Configuration (.htaccess)
+# Compatível com LiteSpeed / Apache em planos Hostinger (Web Hosting, Cloud e VPS)
+# ==============================================================================
+
+# 1. FORÇAR CONEXÃO SEGURA HTTPS
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Redirecionar HTTP para HTTPS
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # 2. ROTEAMENTO SPA (Single Page Application)
+  # Se o ficheiro ou diretório solicitado existir fisicamente, serve diretamente.
+  # Caso contrário, reescreve a requisição para index.html (evita erro 404 ao atualizar página).
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# 3. CABEÇALHOS DE SEGURANÇA RECOMENDADOS
+<IfModule mod_headers.c>
+  # Previne inclusão em iframes não autorizados (proteção contra clickjacking)
+  Header set X-Frame-Options "SAMEORIGIN"
+  
+  # Previne que o navegador tente adivinhar o tipo MIME (proteção MIME sniffing)
+  Header set X-Content-Type-Options "nosniff"
+  
+  # Ativa o filtro XSS do navegador
+  Header set X-XSS-Protection "1; mode=block"
+  
+  # Política de Referrer segura
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  
+  # Política de Permissões
+  Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# 4. POLÍTICA DE CACHE PARA MÁXIMA VELOCIDADE E ATUALIZAÇÃO INSTANTÂNEA
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # index.html NUNCA deve ficar em cache persistente para que atualizações entrem em vigor de imediato
+  ExpiresByType text/html "access plus 0 seconds"
+
+  # Recursos estáticos com hash gerados pelo Vite (1 ano de cache)
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType application/x-javascript "access plus 1 year"
+
+  # Imagens e Mídias
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+
+  # Fontes Web
+  ExpiresByType font/ttf "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# Controle adicional de cabeçalhos de Cache
+<IfModule mod_headers.c>
+  # index.html sempre revalidado
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Assets compilados em cache imutável
+  <FilesMatch "\.(css|js|woff2?|png|jpe?g|webp|svg|gif|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# 5. COMPRESSÃO GZIP / DEFLATE PARA CARREGAMENTO ULTRA RÁPIDO
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE text/javascript
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/x-javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE font/ttf
+  AddOutputFilterByType DEFLATE font/woff
+  AddOutputFilterByType DEFLATE font/woff2
+</IfModule>
+
+# 6. IMPEDIR LISTAGEM DE DIRETÓRIOS POR MOTIVOS DE SEGURANÇA
+Options -Indexes

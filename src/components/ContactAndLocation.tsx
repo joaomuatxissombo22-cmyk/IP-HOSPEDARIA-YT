@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { MapPin, Phone, Mail, Clock, Send, MessageCircle, CheckCircle2, Navigation } from 'lucide-react';
 
 export const ContactAndLocation: React.FC = () => {
-  const { siteSettings } = useApp();
+  const { siteSettings, sendSupportMessage } = useApp();
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -15,6 +15,13 @@ export const ContactAndLocation: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    sendSupportMessage({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      subject: formData.subject,
+      message: formData.message,
+    });
     setFormSubmitted(true);
     setTimeout(() => {
       setFormData({ name: '', email: '', phone: '', subject: 'Reserva na Hospedaria', message: '' });

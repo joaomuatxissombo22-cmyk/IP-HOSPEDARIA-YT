@@ -9,7 +9,8 @@ import {
   ShieldCheck, 
   Phone,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Bell
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -22,13 +23,27 @@ export const Header: React.FC = () => {
     activeLanguage, 
     setActiveLanguage,
     setBookingDraft,
-    siteSettings
+    siteSettings,
+    notifications
   } = useApp();
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+
+  const unreadNotifCount = currentUser
+    ? notifications.filter((n) => {
+        if (currentUser.role === 'client') {
+          if (n.recipientRole && n.recipientRole !== 'client') return false;
+          if (n.recipientUserId && n.recipientUserId !== currentUser.id) return false;
+          if (n.recipientEmail && n.recipientEmail.toLowerCase() !== currentUser.email.toLowerCase()) return false;
+          return !n.read;
+        } else {
+          return (n.recipientRole === 'admin' || n.recipientRole === 'all_staff') && !n.read;
+        }
+      }).length
+    : 0;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -215,53 +230,112 @@ export const Header: React.FC = () => {
 
             {/* User Account / Login */}
             {currentUser ? (
-              <div className="relative">
+              <div className="flex items-center gap-2">
+                {/* Notification Bell Header Shortcut */}
                 <button
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 hover:border-emerald-500/50 transition-all text-xs"
+                  onClick={() => {
+                    if (currentUser.role === 'client') {
+                      setCurrentView('client_dashboard');
+                    } else {
+                      setCurrentView('admin');
+                    }
+                  }}
+                  className="relative p-2 rounded-full hover:bg-white/10 text-slate-200 hover:text-white transition-colors cursor-pointer"
+                  title={currentUser.role === 'client' ? 'Minhas Notificações' : 'Notificações do Painel'}
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-emerald-600 to-green-400 text-slate-950 font-bold flex items-center justify-center text-[11px]">
-                    {currentUser.fullName.charAt(0)}
-                  </div>
-                  <span className="font-medium max-w-[100px] truncate text-slate-200">
-                    {currentUser.fullName.split(' ')[0]}
-                  </span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                  <Bell className={`w-4 h-4 ${unreadNotifCount > 0 ? 'text-amber-400 animate-bounce' : 'text-slate-300'}`} />
+                  {unreadNotifCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white font-bold text-[9px] flex items-center justify-center animate-pulse shadow-sm">
+                      {unreadNotifCount}
+                    </span>
+                  )}
                 </button>
 
-                {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-2 text-xs text-slate-200 z-50">
-                    <div className="px-4 py-2 border-b border-slate-800">
-                      <p className="font-semibold text-white truncate">{currentUser.fullName}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-300">
-                        {currentUser.role === 'client' ? 'Hóspede ZEMAN' : `Staff (${currentUser.role})`}
-                      </span>
+                <div className="relative">
+                  <button
+                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                    className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 hover:border-emerald-500/50 transition-all text-xs cursor-pointer"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-emerald-600 to-green-400 text-slate-950 font-bold flex items-center justify-center text-[11px]">
+                      {currentUser.fullName.charAt(0)}
                     </div>
+                    <span className="font-medium max-w-[100px] truncate text-slate-200">
+                      {currentUser.fullName.split(' ')[0]}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  </button>
 
-                    {currentUser.role === 'client' ? (
-                      <button
-                        onClick={() => {
-                          setCurrentView('client_dashboard');
-                          setUserDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200"
-                      >
-                        <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Área do Cliente</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setCurrentView('admin');
-                          setUserDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-left hover:bg-slate-800 flex items-center gap-2 text-emerald-400 font-semibold"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Painel Administrativo</span>
-                      </button>
-                    )}
+                  {userDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-2 text-xs text-slate-200 z-50">
+                      <div className="px-4 py-2 border-b border-slate-800">
+                        <p className="font-semibold text-white truncate">{currentUser.fullName}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-300">
+                          {currentUser.role === 'client' ? 'Hóspede ZEMAN' : `Staff (${currentUser.role})`}
+                        </span>
+                      </div>
+
+                      {currentUser.role === 'client' ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              setCurrentView('client_dashboard');
+                              setUserDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 cursor-pointer"
+                          >
+                            <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Área do Cliente</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCurrentView('client_dashboard');
+                              setUserDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
+                          >
+                            <span className="flex items-center gap-2">
+                              <Bell className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Notificações</span>
+                            </span>
+                            {unreadNotifCount > 0 && (
+                              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500 text-white font-bold">
+                                {unreadNotifCount}
+                              </span>
+                            )}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setCurrentView('admin');
+                              setUserDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-slate-800 flex items-center gap-2 text-emerald-400 font-semibold cursor-pointer"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Painel Administrativo</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCurrentView('admin');
+                              setUserDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
+                          >
+                            <span className="flex items-center gap-2">
+                              <Bell className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Notificações Staff</span>
+                            </span>
+                            {unreadNotifCount > 0 && (
+                              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-500 text-white font-bold">
+                                {unreadNotifCount}
+                              </span>
+                            )}
+                          </button>
+                        </>
+                      )}
 
                     <button
                       onClick={() => {
@@ -274,6 +348,7 @@ export const Header: React.FC = () => {
                     </button>
                   </div>
                 )}
+                </div>
               </div>
             ) : (
               <button
@@ -387,27 +462,65 @@ export const Header: React.FC = () => {
                   Sessão iniciada como: {currentUser.fullName}
                 </div>
                 {currentUser.role === 'client' ? (
-                  <button
-                    onClick={() => {
-                      setCurrentView('client_dashboard');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full py-2 px-4 rounded-lg bg-slate-800 text-left font-medium text-sm flex items-center gap-2"
-                  >
-                    <UserIcon className="w-4 h-4 text-emerald-400" />
-                    <span>Área do Cliente</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setCurrentView('client_dashboard');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full py-2 px-4 rounded-lg bg-slate-800 text-left font-medium text-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      <UserIcon className="w-4 h-4 text-emerald-400" />
+                      <span>Área do Cliente</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCurrentView('client_dashboard');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full py-2 px-4 rounded-lg bg-slate-800 text-left font-medium text-sm flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-amber-400" />
+                        <span>Notificações</span>
+                      </span>
+                      {unreadNotifCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500 text-white font-bold">
+                          {unreadNotifCount}
+                        </span>
+                      )}
+                    </button>
+                  </>
                 ) : (
-                  <button
-                    onClick={() => {
-                      setCurrentView('admin');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full py-2 px-4 rounded-lg bg-emerald-950/60 text-emerald-300 font-semibold text-sm flex items-center gap-2"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Painel Administrativo</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setCurrentView('admin');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full py-2 px-4 rounded-lg bg-emerald-950/60 text-emerald-300 font-semibold text-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Painel Administrativo</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCurrentView('admin');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full py-2 px-4 rounded-lg bg-slate-800 text-left font-medium text-sm flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-amber-400" />
+                        <span>Notificações Staff</span>
+                      </span>
+                      {unreadNotifCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-red-500 text-white font-bold">
+                          {unreadNotifCount}
+                        </span>
+                      )}
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => {

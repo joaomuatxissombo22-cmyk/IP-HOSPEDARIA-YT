@@ -1,4 +1,4 @@
-import { Accommodation, RoomUnit, Booking, Review, Experience, Offer, User, SiteSettings } from '../types';
+import { Accommodation, RoomUnit, Booking, Review, Experience, Offer, User, SiteSettings, AppNotification, SupportMessage } from '../types';
 
 export const INITIAL_ACCOMMODATIONS: Accommodation[] = [
   {
@@ -532,3 +532,112 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   bankIban: 'AO06.0040.0000.1234.5678.9101.4',
   bankHolder: 'ZEMAN TRADING & SERVICES LDA',
 };
+
+export const INITIAL_NOTIFICATIONS: AppNotification[] = [
+  // Notification for Client: Booking confirmed
+  {
+    id: 'notif-1',
+    recipientRole: 'client',
+    recipientUserId: 'user-client-1',
+    recipientEmail: 'joao.silva@exemplo.ao',
+    type: 'booking_status',
+    title: 'Reserva Confirmada — ZTS-2026-1048',
+    message: 'A sua reserva para Quarto Casal Clássico foi confirmada pela gerência da hospedaria. O comprovativo foi validado.',
+    linkAction: {
+      view: 'client_dashboard',
+      tab: 'reservas',
+      targetId: 'ZTS-2026-1048',
+    },
+    relatedBookingId: 'ZTS-2026-1048',
+    read: false,
+    createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
+  },
+  // Notification for Client: Review request after stay
+  {
+    id: 'notif-2',
+    recipientRole: 'client',
+    recipientUserId: 'user-client-1',
+    recipientEmail: 'joao.silva@exemplo.ao',
+    type: 'review_request',
+    title: 'Partilhe a sua experiência na Hospedaria ZEMAN',
+    message: 'Esperamos que tenha tido uma estadia excelente! Convidamo-lo a deixar a sua avaliação sobre o quarto e comodidades.',
+    linkAction: {
+      view: 'client_dashboard',
+      tab: 'avaliar',
+    },
+    read: false,
+    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+  },
+  // Notification for Admin: New booking received
+  {
+    id: 'notif-3',
+    recipientRole: 'admin',
+    type: 'booking_status',
+    title: 'Nova Reserva Registada — ZTS-2026-1048',
+    message: 'O hóspede João Baptista Silva registou uma reserva de 3 noites para Quarto Casal Clássico (105.000 Kz).',
+    linkAction: {
+      view: 'admin',
+      tab: 'reservas',
+      targetId: 'ZTS-2026-1048',
+    },
+    relatedBookingId: 'ZTS-2026-1048',
+    read: false,
+    createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+  },
+  // Notification for Admin: Review submitted for moderation
+  {
+    id: 'notif-4',
+    recipientRole: 'admin',
+    type: 'review_submitted',
+    title: 'Nova Avaliação Pendente de Moderação',
+    message: 'O hóspede Manuel Domingos de Oliveira enviou uma avaliação de 5 estrelas sobre Quarto Casal Clássico.',
+    linkAction: {
+      view: 'admin',
+      tab: 'conteudos',
+      targetId: 'rev-1',
+    },
+    relatedReviewId: 'rev-1',
+    read: false,
+    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+  },
+  // Notification for Admin: Support message received
+  {
+    id: 'notif-5',
+    recipientRole: 'admin',
+    type: 'support_message',
+    title: 'Nova Mensagem de Contacto / Apoio',
+    message: 'Recebeu uma mensagem de Carlos Manuel Pereira solicitando informações sobre alojamento para equipa corporativa.',
+    linkAction: {
+      view: 'admin',
+      tab: 'mensagens',
+      targetId: 'msg-1',
+    },
+    read: false,
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+];
+
+export const INITIAL_SUPPORT_MESSAGES: SupportMessage[] = [
+  {
+    id: 'msg-1',
+    name: 'Carlos Manuel Pereira',
+    email: 'carlos.pereira@sonangol-log.ao',
+    phone: '+244 923 888 777',
+    subject: 'Reserva na Hospedaria para Equipa',
+    message: 'Boa tarde, necessitamos de alojar 4 técnicos da nossa empresa em Talatona por 10 dias. Têm quartos disponíveis com gerador garantido e pequeno-almoço?',
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    status: 'unread',
+  },
+  {
+    id: 'msg-2',
+    name: 'Dra. Elsa Capemba',
+    email: 'elsa.capemba@clinica-luanda.ao',
+    phone: '+244 912 111 222',
+    subject: 'Restauração e Refeições',
+    message: 'Olá, gostaria de saber se o restaurante da hospedaria serve almoços para pessoas que não estejam hospedadas.',
+    createdAt: new Date(Date.now() - 3600000 * 26).toISOString(),
+    status: 'replied',
+    replyText: 'Prezada Dra. Elsa, sim! O nosso restaurante e esplanada na Rotunda do Fubu estão abertos ao público em geral todos os dias das 11h às 23h.',
+    repliedAt: new Date(Date.now() - 3600000 * 22).toISOString(),
+  },
+];
